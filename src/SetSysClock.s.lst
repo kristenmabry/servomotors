@@ -1,0 +1,364 @@
+   1              	# file: SetSysClock.s
+   2              	
+   3              	    .syntax unified
+   4              	    .thumb
+   5              	    .file	"SetSysClock.s"
+   6              	
+   7              	.include "src/periph_regs.inc"
+   1              	# peripheral registers
+   2              	
+   3              	  .equ PWR_BASE,0x40007000
+   4              	
+   5              	    .equ PWR_CR,0x00
+   6              	      .equ PWR_CR_PMODE,0x4000
+   7              	  
+   8              	  .equ RCC_BASE,0x40023800
+   9              	  
+  10              	    .equ RCC_CR,0x00
+  11              	      .equ RCC_CR_HSEON,0x00010000
+  12              	      .equ RCC_CR_HSERDY,0x00020000
+  13              	    
+  14              	      .equ RCC_CR_PLLON,0x01000000
+  15              	      .equ RCC_CR_PLLRDY,0x02000000
+  16              	    
+  17              	    .equ RCC_PLLCFGR,0x04
+  18              	
+  19              	    .equ PLL_M,8
+  20              	    .equ PLL_N,336
+  21              	    .equ PLL_P,2
+  22              	    .equ PLL_Q,7
+  23              	    
+  24              	    /* PLL_VCO = (HSE_VALUE or HSI_VALUE / PLL_M) * PLL_N */
+  25              	    // #define PLL_M      8
+  26              	    // #define PLL_N      336
+  27              	
+  28              	    /* SYSCLK = PLL_VCO / PLL_P */
+  29              	    // #define PLL_P      2
+  30              	
+  31              	    /* USB OTG FS, SDIO and RNG Clock =  PLL_VCO / PLLQ */
+  32              	    // #define PLL_Q      7
+  33              	
+  34              	    .equ RCC_CFGR,0x08
+  35              	      .equ RCC_CFGR_MCO1_MASK,0x00600000
+  36              	      .equ RCC_CFGR_MCO1_HSI,0x00000000
+  37              	      .equ RCC_CFGR_MCO1_LSI,0x00200000
+  38              	      .equ RCC_CFGR_MCO1_HSE,0x00400000
+  39              	      .equ RCC_CFGR_MCO1_PLL,0x00600000
+  40              	      .equ RCC_CFGR_MCO2_MASK,0xC0000000
+  41              	      .equ RCC_CFGR_MCO2_SYSCLK,0x00000000
+  42              	      .equ RCC_CFGR_MCO2_PLLI2S,0x40000000
+  43              	      .equ RCC_CFGR_MCO2_HSE,0x80000000
+  44              	      .equ RCC_CFGR_MCO2_PLL,0xC0000000
+  45              	      .equ RCC_CFGR_MCO2_Div_1,0x00000000
+  46              	      .equ RCC_CFGR_HPRE_DIV1,0x00000000
+  47              	      .equ RCC_CFGR_PPRE2_DIV2,0x00008000
+  48              	      .equ RCC_CFGR_PPRE1_DIV4,0x00001400
+  49              	      .equ RCC_CFGR_SW,0x00000003
+  50              	      .equ RCC_CFGR_SW_PLL,0x00000002
+  51              	      .equ RCC_CFGR_SWS,0x0000000C
+  52              	      .equ RCC_CFGR_SWS_PLL,0x00000008
+  53              	      .equ RCC_PLLCFGR_PLLSRC_HSE,0x00400000
+  54              	      
+  55              	    .equ RCC_CIR,0x0c      
+  56              	
+  57              	    .equ RCC_AHB1ENR,0x30
+  58              	      .equ RCC_AHB1ENR_GPIOA_EN,0x01
+  59              	      .equ RCC_AHB1ENR_GPIOB_EN,0x02
+  60              	      .equ RCC_AHB1ENR_GPIOC_EN,0x04
+  61              	      .equ RCC_AHB1ENR_GPIOD_EN,0x08
+  62              	      .equ RCC_AHB1ENR_GPIOE_EN,0x10
+  63              	
+  64              	    .equ RCC_APB1ENR,0x40
+  65              	      .equ RCC_APB1ENR_PWREN,0x10000000    
+  66              	
+  67              	      
+  68              	  .equ FLASH_BASE,0x08000000
+  69              	  
+  70              	  .equ FLASH_R_BASE,0x40023c00
+  71              	  
+  72              	    .equ FLASH_ACR,0x00
+  73              	      .equ FLASH_ACR_ICEN,0x00000200
+  74              	      .equ FLASH_ACR_DCEN,0x00000400
+  75              	      .equ FLASH_ACR_LATENCY_5WS,0x00000005
+  76              	 
+  77              	  .equ VECT_TAB_OFFSET,0x00
+  78              	  
+  79              	  .equ SCB_BASE,0xE000ED00
+  80              	    .equ SCB_VTOR,0x08
+  81              	
+  82              	  .equ GPIOA_BASE,0x40020000
+  83              	  .equ GPIOB_BASE,0x40020400
+  84              	  .equ GPIOC_BASE,0x40020800
+  85              	  .equ GPIOD_BASE,0x40020C00
+  86              	  .equ GPIOE_BASE,0x40021000
+  87              	  
+  88              	    .equ GPIO_MODER,0x00
+  89              	      .equ GPIO_MODER_IN,0b00
+  90              	      .equ GPIO_MODER_OUT,0b01
+  91              	      .equ GPIO_MODER_AF,0b10
+  92              	      .equ GPIO_MODER_ANALOG,0b11
+  93              	      
+  94              	    .equ GPIO_OTYPER,0x04
+  95              	      .equ GPIO_OTYPER_PP,0b00
+  96              	      .equ GPIO_OTYPER_OD,0b01
+  97              	    
+  98              	    .equ GPIO_OSPEEDR,0x08
+  99              	      .equ GPIO_OSPEEDR_LS,0b00
+ 100              	      .equ GPIO_OSPEEDR_MS,0b01
+ 101              	      .equ GPIO_OSPEEDR_FS,0b10
+ 102              	      .equ GPIO_OSPEEDR_HS,0b11
+ 103              	    
+ 104              	    .equ GPIO_PUPDR,0x0c
+ 105              	      .equ GPIO_PUPDR_NOPUP,0b00
+ 106              	      .equ GPIO_PUPDR_PUP,0b01
+ 107              	      .equ GPIO_PUPDR_PDOWN,0b10
+ 108              	    
+ 109              	    .equ GPIO_IDR,0x10
+ 110              	    .equ GPIO_ODR,0x14
+ 111              	
+ 112              	  .equ SYST_BASE,0xE000E010
+ 113              	    .equ SYST_CSR,0x0
+ 114              	    .equ SYST_RVR,0x4
+ 115              	    .equ SYST_CVR,0x8
+ 116              	    .equ SYST_CALIB,0xC
+ 117              	    
+ 118              	    .equ SYST_RVR_MASK,0x00ffffff
+ 119              	    .equ SYST_CSR_CLKSOURCE,0x00000004
+ 120              	    .equ SYST_CSR_TICKINT,0x00000002
+ 121              	    .equ SYST_CSR_ENABLE,0x00000001
+ 122              	    
+   8              	      
+   9              	    .text
+  10              	    .align	2
+  11              	    .global	SetSysClock
+  12              	    .thumb_func
+  13              	    .type	SetSysClock, %function
+  14              	
+  15              	SetSysClock:
+  16              	
+  17              	  /******************************************************************************/
+  18              	  /*            PLL (clocked by HSE) used as System clock source                */
+  19              	  /******************************************************************************/
+  20              	
+  21 0000 F0B5     	  push {r4,r5,r6,r7,lr}
+  22              	
+  23 0002 264F     	  ldr r7,=#RCC_BASE
+  24              	
+  25              	    /* Enable HSE */
+  26              	  
+  27 0004 3C68     	    ldr r4,[r7,#RCC_CR]
+  28 0006 264D     	    ldr r5,=#RCC_CR_HSEON
+  29 0008 44EA0504 	    orr r4,r5
+  30 000c 3C60     	    str r4,[r7,#RCC_CR]
+  31              	 
+  32              	  /* Wait till HSE is ready and if Time out is reached exit */
+  33              	
+  34 000e 254B     	    ldr r3,=#0x500
+  35              	  
+  36              	    Wait_HSE_Ready:
+  37              	
+  38 0010 013B     	      subs r3,#1
+  39 0012 41D0     	      beq  fail_startup
+  40              	    
+  41 0014 3C68     	      ldr  r4,[r7,#RCC_CR]
+  42 0016 244D     	      ldr  r5,=#RCC_CR_HSERDY
+  43 0018 2C40     	      ands r4,r5
+  44 001a F9D0     	      beq  Wait_HSE_Ready
+  45              	
+  46              	      /* Enable high performance mode, System frequency up to 168 MHz */
+  47              	    
+  48 001c 3C6C     	    ldr r4,[r7,#RCC_APB1ENR]
+  49 001e 234D     	    ldr r5,=#RCC_APB1ENR_PWREN
+  50 0020 44EA0504 	    orr r4,r5
+  51 0024 3C64     	    str r4,[r7,#RCC_APB1ENR]
+  52              	    
+  53              	
+  54 0026 224F     	  ldr r7,=#PWR_BASE
+  55              	    
+  56 0028 3C68     	    ldr r4,[r7,#PWR_CR]
+  57 002a 224D     	    ldr r5,=#PWR_CR_PMODE
+  58 002c 44EA0504 	    orr r4,r5
+  59 0030 3C60     	    str r4,[r7,#PWR_CR]
+  60              	
+  61 0032 1A4F     	  ldr r7,=#RCC_BASE
+  62              	    
+  63              	    /* HCLK = SYSCLK / 1*/
+  64              	
+  65 0034 BC68     	    ldr r4,[r7,#RCC_CFGR]
+  66 0036 204D     	    ldr r5,=#RCC_CFGR_HPRE_DIV1
+  67 0038 44EA0504 	    orr r4,r5
+  68 003c BC60     	    str r4,[r7,#RCC_CFGR]
+  69              	    
+  70              	    /* PCLK2 = HCLK / 2*/
+  71              	    
+  72 003e BC68     	    ldr r4,[r7,#RCC_CFGR]
+  73 0040 1E4D     	    ldr r5,=#RCC_CFGR_PPRE2_DIV2
+  74 0042 44EA0504 	    orr r4,r5
+  75 0046 BC60     	    str r4,[r7,#RCC_CFGR]
+  76              	    
+  77              	    /* PCLK1 = HCLK / 4*/
+  78              	
+  79 0048 BC68     	    ldr r4,[r7,#RCC_CFGR]
+  80 004a 1D4D     	    ldr r5,=#RCC_CFGR_PPRE1_DIV4
+  81 004c 44EA0504 	    orr r4,r5
+  82 0050 BC60     	    str r4,[r7,#RCC_CFGR]
+  83              	    
+  84              	    /* Configure the main PLL */
+  85              	
+  86 0052 1C4C     	    ldr r4,=#( PLL_M | (PLL_N << 6) | (((PLL_P >> 1) -1) << 16) | (RCC_PLLCFGR_PLLSRC_HSE) | (PLL_Q
+  87 0054 7C60     	    str r4,[r7,#RCC_PLLCFGR]
+  88              	    
+  89              	    /* Enable the main PLL */
+  90              	
+  91 0056 3C68     	    ldr r4,[r7,#RCC_CR]
+  92 0058 1B4D     	    ldr r5,=#RCC_CR_PLLON
+  93 005a 44EA0504 	    orr r4,r5
+  94 005e 3C60     	    str r4,[r7,#RCC_CR]
+  95              	    
+  96              	    
+  97              	    Wait_PLL_Ready:
+  98 0060 3C68     	      ldr r4,[r7,#RCC_CR]
+  99 0062 1A4D     	      ldr r5,=#RCC_CR_PLLRDY
+ 100 0064 2C40     	      ands r4,r5
+ 101 0066 FBD0     	      beq Wait_PLL_Ready
+ 102              	   
+ 103              	    /* Configure Flash prefetch, Instruction cache, Data cache and wait state */
+ 104              	
+ 105 0068 194F     	  ldr r7,=#FLASH_R_BASE   
+ 106              	
+ 107 006a 1A4C     	    ldr r4,=#(FLASH_ACR_ICEN | FLASH_ACR_DCEN | FLASH_ACR_LATENCY_5WS)
+ 108 006c 3C60     	    str r4,[r7,#FLASH_ACR]
+ 109              	
+ 110 006e 0B4F     	  ldr r7,=#RCC_BASE
+ 111              	  
+ 112              	    /* Select the main PLL as system clock source */
+ 113              	    
+ 114 0070 BC68     	    ldr r4,[r7,#RCC_CFGR]
+ 115 0072 194D     	    ldr r5,=#~(RCC_CFGR_SW)
+ 116 0074 04EA0504 	    and r4,r5
+ 117 0078 BC60     	    str r4,[r7,#RCC_CFGR]
+ 118              	
+ 119 007a BC68     	    ldr r4,[r7,#RCC_CFGR]
+ 120 007c 174D     	    ldr r5,=#RCC_CFGR_SW_PLL
+ 121 007e 44EA0504 	    orr r4,r5
+ 122 0082 BC60     	    str r4,[r7,#RCC_CFGR]
+ 123              	    
+ 124              	    Wait_PLL:
+ 125 0084 BC68     	      ldr r4,[r7,#RCC_CFGR]
+ 126 0086 164D     	      ldr r5,=#RCC_CFGR_SWS
+ 127 0088 04EA0504 	      and r4,r5
+ 128 008c 154D     	      ldr r5,=#RCC_CFGR_SWS_PLL
+ 129 008e AC42     	      cmp r4,r5
+ 130 0090 F8D1     	      bne Wait_PLL
+ 131              	   
+ 132 0092 BDE8F040 	    pop {r4,r5,r6,r7,lr}
+ 133              	    
+ 134 0096 7047     	    bx lr
+ 135              	  
+ 136              	  fail_startup:
+ 137              	    
+ 138 0098 FEE7     	    b fail_startup
+ 139              	
+ 140 009a 00000038 	  .end
+ 140      02400000 
+ 140      01000005 
+ 140      00000000 
+ 140      02000000 
+DEFINED SYMBOLS
+                            *ABS*:00000000 SetSysClock.s
+                            *ABS*:00000001 ctxm4
+./src/periph_regs.inc:3      *ABS*:40007000 PWR_BASE
+./src/periph_regs.inc:5      *ABS*:00000000 PWR_CR
+./src/periph_regs.inc:6      *ABS*:00004000 PWR_CR_PMODE
+./src/periph_regs.inc:8      *ABS*:40023800 RCC_BASE
+./src/periph_regs.inc:10     *ABS*:00000000 RCC_CR
+./src/periph_regs.inc:11     *ABS*:00010000 RCC_CR_HSEON
+./src/periph_regs.inc:12     *ABS*:00020000 RCC_CR_HSERDY
+./src/periph_regs.inc:14     *ABS*:01000000 RCC_CR_PLLON
+./src/periph_regs.inc:15     *ABS*:02000000 RCC_CR_PLLRDY
+./src/periph_regs.inc:17     *ABS*:00000004 RCC_PLLCFGR
+./src/periph_regs.inc:19     *ABS*:00000008 PLL_M
+./src/periph_regs.inc:20     *ABS*:00000150 PLL_N
+./src/periph_regs.inc:21     *ABS*:00000002 PLL_P
+./src/periph_regs.inc:22     *ABS*:00000007 PLL_Q
+./src/periph_regs.inc:34     *ABS*:00000008 RCC_CFGR
+./src/periph_regs.inc:35     *ABS*:00600000 RCC_CFGR_MCO1_MASK
+./src/periph_regs.inc:36     *ABS*:00000000 RCC_CFGR_MCO1_HSI
+./src/periph_regs.inc:37     *ABS*:00200000 RCC_CFGR_MCO1_LSI
+./src/periph_regs.inc:38     *ABS*:00400000 RCC_CFGR_MCO1_HSE
+./src/periph_regs.inc:39     *ABS*:00600000 RCC_CFGR_MCO1_PLL
+./src/periph_regs.inc:40     *ABS*:c0000000 RCC_CFGR_MCO2_MASK
+./src/periph_regs.inc:41     *ABS*:00000000 RCC_CFGR_MCO2_SYSCLK
+./src/periph_regs.inc:42     *ABS*:40000000 RCC_CFGR_MCO2_PLLI2S
+./src/periph_regs.inc:43     *ABS*:80000000 RCC_CFGR_MCO2_HSE
+./src/periph_regs.inc:44     *ABS*:c0000000 RCC_CFGR_MCO2_PLL
+./src/periph_regs.inc:45     *ABS*:00000000 RCC_CFGR_MCO2_Div_1
+./src/periph_regs.inc:46     *ABS*:00000000 RCC_CFGR_HPRE_DIV1
+./src/periph_regs.inc:47     *ABS*:00008000 RCC_CFGR_PPRE2_DIV2
+./src/periph_regs.inc:48     *ABS*:00001400 RCC_CFGR_PPRE1_DIV4
+./src/periph_regs.inc:49     *ABS*:00000003 RCC_CFGR_SW
+./src/periph_regs.inc:50     *ABS*:00000002 RCC_CFGR_SW_PLL
+./src/periph_regs.inc:51     *ABS*:0000000c RCC_CFGR_SWS
+./src/periph_regs.inc:52     *ABS*:00000008 RCC_CFGR_SWS_PLL
+./src/periph_regs.inc:53     *ABS*:00400000 RCC_PLLCFGR_PLLSRC_HSE
+./src/periph_regs.inc:55     *ABS*:0000000c RCC_CIR
+./src/periph_regs.inc:57     *ABS*:00000030 RCC_AHB1ENR
+./src/periph_regs.inc:58     *ABS*:00000001 RCC_AHB1ENR_GPIOA_EN
+./src/periph_regs.inc:59     *ABS*:00000002 RCC_AHB1ENR_GPIOB_EN
+./src/periph_regs.inc:60     *ABS*:00000004 RCC_AHB1ENR_GPIOC_EN
+./src/periph_regs.inc:61     *ABS*:00000008 RCC_AHB1ENR_GPIOD_EN
+./src/periph_regs.inc:62     *ABS*:00000010 RCC_AHB1ENR_GPIOE_EN
+./src/periph_regs.inc:64     *ABS*:00000040 RCC_APB1ENR
+./src/periph_regs.inc:65     *ABS*:10000000 RCC_APB1ENR_PWREN
+./src/periph_regs.inc:68     *ABS*:08000000 FLASH_BASE
+./src/periph_regs.inc:70     *ABS*:40023c00 FLASH_R_BASE
+./src/periph_regs.inc:72     *ABS*:00000000 FLASH_ACR
+./src/periph_regs.inc:73     *ABS*:00000200 FLASH_ACR_ICEN
+./src/periph_regs.inc:74     *ABS*:00000400 FLASH_ACR_DCEN
+./src/periph_regs.inc:75     *ABS*:00000005 FLASH_ACR_LATENCY_5WS
+./src/periph_regs.inc:77     *ABS*:00000000 VECT_TAB_OFFSET
+./src/periph_regs.inc:79     *ABS*:e000ed00 SCB_BASE
+./src/periph_regs.inc:80     *ABS*:00000008 SCB_VTOR
+./src/periph_regs.inc:82     *ABS*:40020000 GPIOA_BASE
+./src/periph_regs.inc:83     *ABS*:40020400 GPIOB_BASE
+./src/periph_regs.inc:84     *ABS*:40020800 GPIOC_BASE
+./src/periph_regs.inc:85     *ABS*:40020c00 GPIOD_BASE
+./src/periph_regs.inc:86     *ABS*:40021000 GPIOE_BASE
+./src/periph_regs.inc:88     *ABS*:00000000 GPIO_MODER
+./src/periph_regs.inc:89     *ABS*:00000000 GPIO_MODER_IN
+./src/periph_regs.inc:90     *ABS*:00000001 GPIO_MODER_OUT
+./src/periph_regs.inc:91     *ABS*:00000002 GPIO_MODER_AF
+./src/periph_regs.inc:92     *ABS*:00000003 GPIO_MODER_ANALOG
+./src/periph_regs.inc:94     *ABS*:00000004 GPIO_OTYPER
+./src/periph_regs.inc:95     *ABS*:00000000 GPIO_OTYPER_PP
+./src/periph_regs.inc:96     *ABS*:00000001 GPIO_OTYPER_OD
+./src/periph_regs.inc:98     *ABS*:00000008 GPIO_OSPEEDR
+./src/periph_regs.inc:99     *ABS*:00000000 GPIO_OSPEEDR_LS
+./src/periph_regs.inc:100    *ABS*:00000001 GPIO_OSPEEDR_MS
+./src/periph_regs.inc:101    *ABS*:00000002 GPIO_OSPEEDR_FS
+./src/periph_regs.inc:102    *ABS*:00000003 GPIO_OSPEEDR_HS
+./src/periph_regs.inc:104    *ABS*:0000000c GPIO_PUPDR
+./src/periph_regs.inc:105    *ABS*:00000000 GPIO_PUPDR_NOPUP
+./src/periph_regs.inc:106    *ABS*:00000001 GPIO_PUPDR_PUP
+./src/periph_regs.inc:107    *ABS*:00000002 GPIO_PUPDR_PDOWN
+./src/periph_regs.inc:109    *ABS*:00000010 GPIO_IDR
+./src/periph_regs.inc:110    *ABS*:00000014 GPIO_ODR
+./src/periph_regs.inc:112    *ABS*:e000e010 SYST_BASE
+./src/periph_regs.inc:113    *ABS*:00000000 SYST_CSR
+./src/periph_regs.inc:114    *ABS*:00000004 SYST_RVR
+./src/periph_regs.inc:115    *ABS*:00000008 SYST_CVR
+./src/periph_regs.inc:116    *ABS*:0000000c SYST_CALIB
+./src/periph_regs.inc:118    *ABS*:00ffffff SYST_RVR_MASK
+./src/periph_regs.inc:119    *ABS*:00000004 SYST_CSR_CLKSOURCE
+./src/periph_regs.inc:120    *ABS*:00000002 SYST_CSR_TICKINT
+./src/periph_regs.inc:121    *ABS*:00000001 SYST_CSR_ENABLE
+   src/SetSysClock.s:10     .text:00000000 $t
+   src/SetSysClock.s:15     .text:00000000 SetSysClock
+   src/SetSysClock.s:36     .text:00000010 Wait_HSE_Ready
+   src/SetSysClock.s:136    .text:00000098 fail_startup
+   src/SetSysClock.s:97     .text:00000060 Wait_PLL_Ready
+   src/SetSysClock.s:124    .text:00000084 Wait_PLL
+   src/SetSysClock.s:140    .text:0000009a $d
+                   .debug_aranges:0000000c $d
+
+NO UNDEFINED SYMBOLS

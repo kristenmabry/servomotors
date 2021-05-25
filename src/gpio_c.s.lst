@@ -1,0 +1,95 @@
+   1              	# file: gpio_c.s
+   2              	# author: Kristen Mabry
+   3              	
+   4              	.include "macros.inc"
+   1              	# file: macros.inc
+   2              	
+  34              	  .list
+   5              	.include "gpio_regs.inc"
+   1              	# file: gpio_regs.inc
+   2              	# Kristen Mabry
+   3              	
+   4              		.equ	GPIOA_BASE,0x40020000
+   5              		.equ	GPIOB_BASE,0x40020400
+   6              		.equ	GPIOC_BASE,0x40020800
+   7              		.equ	GPIOD_BASE,0x40020C00
+   8              		.equ	GPIOE_BASE,0x40021000
+   9              	
+  10              		.equ	GPIO_MODER,0x00
+  11              		.equ	GPIO_OTYPER,0x04
+  12              		.equ	GPIO_OSPEEDR,0x08
+  13              		.equ	GPIO_PUPDR,0x0C
+  14              		.equ	GPIO_IDR,0x10
+  15              		.equ	GPIO_ODR,0x14
+  16              		.equ	GPIO_BSRR,0x18
+   6              	
+   7              	  SET_TARGET
+   8              	
+   9              	  .text
+  10              	
+  11              	  FUNCTION gpio_c_init,global		// initialize 16 bits of Port C to inputs
+  12              	
+  13 0000 00B5     	    push {lr}
+  14              	
+  15 0002 4FF00200 			mov	r0,#2										// send 2 as argument to rcc_gpio_enable function
+  16 0006 FFF7FEFF 			bl	rcc_gpio_enable					// call rcc_gpio_enable
+  17              	
+  18 000a 054B     			ldr	r3,=#GPIOC_BASE					// r3 = GPIO PORT C base address
+  19              	
+  20 000c 054A     			ldr r2,=#0x00000000					// r2 = 0
+  21 000e DA60     			str	r2,[r3,#GPIO_PUPDR]			// clear Port C PUPD register
+  22 0010 1A60     			str	r2,[r3,#GPIO_MODER]			// clear Port C MODE register
+  23 0012 5A60     			str	r2,[r3,#GPIO_OTYPER]		// clear Port C Type register
+  24              	
+  25 0014 044A     			ldr	r2,=#0xffffffff					// r2 = 0xfffffff
+  26 0016 9A60     			str	r2,[r3,#GPIO_OSPEEDR]
+  27              	
+  28 0018 5DF804EB 	    pop {lr}
+  29              	
+  30 001c 7047     	    bx lr
+  31              	  
+  32 001e 00000008 	  ENDFUNC gpio_c_init
+  32      02400000 
+  32      0000FFFF 
+  32      FFFF
+  33              	
+  34              	
+  35              		FUNCTION gpio_c_get,global		// get the 16 bits of Port C inputs
+  36              	
+  37 002c 00B5     			push {lr}
+  38              	
+  39 002e 024B     			ldr	r3,=#GPIOC_BASE					// load r3 with base address of GPIO Port C
+  40              	
+  41 0030 1869     			ldr	r0,[r3,#GPIO_IDR]				// load r0 (return arg) with GPIO Port C input data register
+  42              	
+  43 0032 5DF804EB 			pop {lr}
+  44              	
+  45 0036 7047     			bx lr
+  46              	
+  47 0038 00080240 		ENDFUNC gpio_c_get
+  48              	
+  49              	  .end
+DEFINED SYMBOLS
+                            *ABS*:00000001 ctxm4
+   src/gpio_regs.inc:4      *ABS*:40020000 GPIOA_BASE
+   src/gpio_regs.inc:5      *ABS*:40020400 GPIOB_BASE
+   src/gpio_regs.inc:6      *ABS*:40020800 GPIOC_BASE
+   src/gpio_regs.inc:7      *ABS*:40020c00 GPIOD_BASE
+   src/gpio_regs.inc:8      *ABS*:40021000 GPIOE_BASE
+   src/gpio_regs.inc:10     *ABS*:00000000 GPIO_MODER
+   src/gpio_regs.inc:11     *ABS*:00000004 GPIO_OTYPER
+   src/gpio_regs.inc:12     *ABS*:00000008 GPIO_OSPEEDR
+   src/gpio_regs.inc:13     *ABS*:0000000c GPIO_PUPDR
+   src/gpio_regs.inc:14     *ABS*:00000010 GPIO_IDR
+   src/gpio_regs.inc:15     *ABS*:00000014 GPIO_ODR
+   src/gpio_regs.inc:16     *ABS*:00000018 GPIO_BSRR
+        src/gpio_c.s:11     .text:00000000 gpio_c_init
+        src/gpio_c.s:11     .text:00000000 $t
+        src/gpio_c.s:32     .text:0000001e $d
+        src/gpio_c.s:35     .text:0000002c gpio_c_get
+        src/gpio_c.s:35     .text:0000002c $t
+        src/gpio_c.s:47     .text:00000038 $d
+                   .debug_aranges:0000000c $d
+
+UNDEFINED SYMBOLS
+rcc_gpio_enable

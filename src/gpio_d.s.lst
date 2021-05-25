@@ -1,0 +1,114 @@
+   1              	# file: gpio_d.s
+   2              	# author: Kristen Mabry
+   3              	
+   4              	.include "macros.inc"
+   1              	# file: macros.inc
+   2              	
+  34              	  .list
+   5              	.include "gpio_regs.inc"
+   1              	# file: gpio_regs.inc
+   2              	# Kristen Mabry
+   3              	
+   4              		.equ	GPIOA_BASE,0x40020000
+   5              		.equ	GPIOB_BASE,0x40020400
+   6              		.equ	GPIOC_BASE,0x40020800
+   7              		.equ	GPIOD_BASE,0x40020C00
+   8              		.equ	GPIOE_BASE,0x40021000
+   9              	
+  10              		.equ	GPIO_MODER,0x00
+  11              		.equ	GPIO_OTYPER,0x04
+  12              		.equ	GPIO_OSPEEDR,0x08
+  13              		.equ	GPIO_PUPDR,0x0C
+  14              		.equ	GPIO_IDR,0x10
+  15              		.equ	GPIO_ODR,0x14
+  16              		.equ	GPIO_BSRR,0x18
+   6              	
+   7              	  SET_TARGET
+   8              	
+   9              	  .text
+  10              	
+  11              	  FUNCTION gpio_d_init,global		// initialize 16 bits of Port D to outputs
+  12              	
+  13 0000 00B5     	    push {lr}
+  14              	
+  15 0002 4FF00300 			mov	r0,#3										// send 2 as argument to rcc_gpio_enable function
+  16 0006 FFF7FEFF 			bl	rcc_gpio_enable					// call rcc_gpio_enable
+  17              	
+  18 000a 064B     			ldr	r3,=#GPIOD_BASE					// r3 = GPIO PORT D base address
+  19              	
+  20 000c 064A     			ldr r2,=#0x00000000					// r2 = 0
+  21 000e DA60     			str	r2,[r3,#GPIO_PUPDR]			// clear Port D PUPD register
+  22 0010 5A60     			str	r2,[r3,#GPIO_OTYPER]		// clear Port D Type register
+  23 0012 5A61     			str	r2,[r3,#GPIO_ODR]				// clear Port D ouput data register
+  24              	
+  25 0014 054A     			ldr	r2,=#0x55555555						// set all 16 bits of Port D to outputs
+  26 0016 1A60     			str	r2,[r3,#GPIO_MODER]
+  27              	
+  28 0018 054A     			ldr	r2,=#0xffffffff					// write 0xffffffff to Port D speed register
+  29 001a 9A60     			str	r2,[r3,#GPIO_OSPEEDR]
+  30              	
+  31 001c 5DF804EB 	    pop {lr}
+  32              	
+  33 0020 7047     	    bx lr
+  34              	  
+  35 0022 0000000C 	  ENDFUNC gpio_d_init
+  35      02400000 
+  35      00005555 
+  35      5555FFFF 
+  35      FFFF
+  36              	
+  37              	
+  38              		FUNCTION gpio_d_put,global		// put a value out to the 16 bits of Port D outputs
+  39              	
+  40 0034 00B5     			push {lr}
+  41              	
+  42 0036 024B     			ldr	r3,=#GPIOD_BASE					// load r3 with base address of GPIO Port D
+  43              	
+  44 0038 5861     			str	r0,[r3,#GPIO_ODR]				// write r0 (function arg) to GPIO Port D output
+  45              	
+  46 003a 5DF804EB 			pop {lr}
+  47              	
+  48 003e 7047     			bx lr
+  49              	
+  50 0040 000C0240 		ENDFUNC gpio_d_put
+  51              	
+  52              		FUNCTION gpio_d_get_current,global
+  53              	
+  54 0044 00B5     			push	{lr}
+  55              	
+  56 0046 024B     			ldr		r3,=#GPIOD_BASE
+  57 0048 5869     			ldr		r0,[r3,#GPIO_ODR]		// load Port D ODR into r0
+  58              	
+  59 004a 5DF804EB 			pop		{lr}
+  60 004e 7047     			bx		lr
+  61              	
+  62 0050 000C0240 		ENDFUNC	gpio_d_get_current
+  63              	
+  64              	  .end
+DEFINED SYMBOLS
+                            *ABS*:00000001 ctxm4
+   src/gpio_regs.inc:4      *ABS*:40020000 GPIOA_BASE
+   src/gpio_regs.inc:5      *ABS*:40020400 GPIOB_BASE
+   src/gpio_regs.inc:6      *ABS*:40020800 GPIOC_BASE
+   src/gpio_regs.inc:7      *ABS*:40020c00 GPIOD_BASE
+   src/gpio_regs.inc:8      *ABS*:40021000 GPIOE_BASE
+   src/gpio_regs.inc:10     *ABS*:00000000 GPIO_MODER
+   src/gpio_regs.inc:11     *ABS*:00000004 GPIO_OTYPER
+   src/gpio_regs.inc:12     *ABS*:00000008 GPIO_OSPEEDR
+   src/gpio_regs.inc:13     *ABS*:0000000c GPIO_PUPDR
+   src/gpio_regs.inc:14     *ABS*:00000010 GPIO_IDR
+   src/gpio_regs.inc:15     *ABS*:00000014 GPIO_ODR
+   src/gpio_regs.inc:16     *ABS*:00000018 GPIO_BSRR
+        src/gpio_d.s:11     .text:00000000 gpio_d_init
+        src/gpio_d.s:11     .text:00000000 $t
+        src/gpio_d.s:35     .text:00000022 $d
+        src/gpio_d.s:38     .text:00000034 gpio_d_put
+        src/gpio_d.s:38     .text:00000034 $t
+        src/gpio_d.s:50     .text:00000040 $d
+        src/gpio_d.s:52     .text:00000044 gpio_d_get_current
+        src/gpio_d.s:52     .text:00000044 $t
+        src/gpio_d.s:62     .text:00000050 $d
+                   .debug_aranges:0000000c $d
+
+UNDEFINED SYMBOLS
+rcc_gpio_enable
